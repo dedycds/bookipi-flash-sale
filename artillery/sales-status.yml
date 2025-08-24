@@ -1,0 +1,14 @@
+config:
+    target: 'http://localhost:8000'
+    phases:
+        - duration: 30
+          arrivalRate: 100
+    defaults:
+        headers:
+            Content-Type: 'application/json'
+
+scenarios:
+    - name: Get sale status
+      flow:
+          - get:
+                url: '/sales'

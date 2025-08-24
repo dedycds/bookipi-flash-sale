@@ -1,0 +1,31 @@
+config:
+    target: 'http://localhost:8000'
+    phases:
+        - duration: 60
+          arrivalRate: 20
+    payload:
+        fields:
+            - email
+            - password
+        path: ./users.csv
+    defaults:
+        headers:
+            Content-Type: 'application/json'
+
+scenarios:
+    - name: Attempt purchase flow
+      flow:
+          - post:
+                url: '/users/authenticate'
+                json:
+                    email: '{{ email }}'
+                    password: '{{ password }}'
+                capture:
+                    - json: '$.token'
+                      as: authToken
+          - post:
+                url: '/sale/attempt'
+                headers:
+                    Authorization: 'Bearer {{ authToken }}'
+                json:
+                    product_id: 1
