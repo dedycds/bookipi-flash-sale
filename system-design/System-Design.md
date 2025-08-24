@@ -166,42 +166,44 @@ This design allows **instant feedback to users** (“purchase submitted”) whil
 
 - **PostgreSQL**: Strict uniqueness and referential integrity (critical for enforcing “one per user”).
 - **NoSQL**: Could scale horizontally, but uniqueness enforcement is complex and error-prone.
+
 ---
+
 ## Data Model
 
 ### User
 
-| Column | Description |
-| --- | --- |
-| user_id | string (PK) |
-| email | string |
-| password | string |
+| Column   | Description |
+| -------- | ----------- |
+| user_id  | string (PK) |
+| email    | string      |
+| password | string      |
 
 ### Product
 
-| Column | Description |
-| --- | --- |
-| product_id | string (PK) |
-| name | string |
-| price_in_cent | int |
-| quantity | int |
+| Column        | Description |
+| ------------- | ----------- |
+| product_id    | string (PK) |
+| name          | string      |
+| price_in_cent | int         |
+| quantity      | int         |
 
 ### FlashSale
 
-| Column | Description |
-| --- | --- |
+| Column        | Description |
+| ------------- | ----------- |
 | flash_sale_id | string (PK) |
-| product_id | string (FK) |
-| start_date | Date |
-| end_date | Date |
+| product_id    | string (FK) |
+| start_date    | Date        |
+| end_date      | Date        |
 
 ### Order
 
-| Column | Description |
-| --- | --- |
-| order_id | string (PK) |
-| product_id | string (FK) |
-| user_id | string (FK) |
-| reserved_token | string |
+| Column         | Description |
+| -------------- | ----------- |
+| order_id       | string (PK) |
+| product_id     | string (FK) |
+| user_id        | string (FK) |
+| reserved_token | string      |
 
 ---

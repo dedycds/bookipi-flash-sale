@@ -1,0 +1,73 @@
+services:
+    # Backend
+    backend:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+        ports:
+            - '8000:8000'
+        environment:
+            - NODE_ENV=production
+            - PORT=8000
+            - REDIS_URL=redis://redis:6379
+            - POSTGRES_URL=postgresql://postgres:password@postgres:5432/flash_sale
+            - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+            - JWT_SECRET=your-super-secret-jwt-key
+            - USER_SERVICE_URL=http://user-service:3001
+            - PRODUCT_SERVICE_URL=http://product-service:3002
+            - SALE_SERVICE_URL=http://sale-service:3003
+            - ORDER_SERVICE_URL=http://order-service:3004
+        depends_on:
+            - redis
+            - postgres
+            - rabbitmq
+        networks:
+            - flash-sale-network
+
+    # Redis
+    redis:
+        image: redis:7-alpine
+        ports:
+            - '6379:6379'
+        volumes:
+            - redis_data:/data
+        networks:
+            - flash-sale-network
+
+    # PostgreSQL
+    postgres:
+        image: postgres:15-alpine
+        ports:
+            - '5432:5432'
+        environment:
+            - POSTGRES_DB=flash_sale
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=password
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+            - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+        networks:
+            - flash-sale-network
+
+    # RabbitMQ
+    rabbitmq:
+        image: rabbitmq:3-management-alpine
+        ports:
+            - '5672:5672'
+            - '15672:15672'
+        environment:
+            - RABBITMQ_DEFAULT_USER=guest
+            - RABBITMQ_DEFAULT_PASS=guest
+        volumes:
+            - rabbitmq_data:/var/lib/rabbitmq
+        networks:
+            - flash-sale-network
+
+volumes:
+    redis_data:
+    postgres_data:
+    rabbitmq_data:
+
+networks:
+    flash-sale-network:
+        driver: bridge
