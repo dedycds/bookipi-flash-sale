@@ -4,7 +4,9 @@ import { v4 as uuidv4 } from 'uuid';
 import pool from '../../db/connection';
 import type { AuthRequest } from '../../middleware/auth';
 import { createError } from '../../middleware/errorHandler';
-import type { Order } from './types';
+import { publishToQueue } from '../../services/rabbitmq';
+import redisClient from '../../services/redis';
+import { getStockKey, getUniqueOrderKey } from '../../utils';
 
 export async function create(
     req: AuthRequest,
@@ -36,51 +38,40 @@ export async function create(
             return res.status(400).json({ error: 'Sale is not active' });
         }
 
-        // Check if user already purchased
-        const existingOrder = await pool.query<Pick<Order, 'order_id'>>(
-            'SELECT order_id FROM orders WHERE user_id = $1 AND product_id = $2',
-            [userId, productId]
+        const existingOrder = await redisClient.get(
+            getUniqueOrderKey({ product_id: productId, user_id: userId || '' })
         );
 
-        if (existingOrder.rows.length > 0) {
+        if (existingOrder) {
             return res.status(400).json({ error: 'Already purchased' });
+        }
+
+        // Try to reserve stock token from Redis
+        const reserved = await redisClient.lPop(getStockKey(productId));
+
+        if (!reserved) {
+            return res.status(400).json({ error: 'Product sold out' });
         }
 
         // // Generate order ID and token
         const orderId = uuidv4();
-        const reservedToken = uuidv4();
         const status = 'pending';
 
-        // Create order in database
-        await pool.query<Order>(
-            'INSERT INTO orders (order_id, product_id, user_id, reserved_token, status) VALUES ($1, $2, $3, $4, $5)',
-            [orderId, productId, userId, reservedToken, status]
+        await redisClient.set(
+            getUniqueOrderKey({ product_id: productId, user_id: userId || '' }),
+            orderId
         );
 
-        // // Try to reserve stock token from Redis
-        // const stockKey = `stock:${productId}`;
-        // const reserved = await redisClient.decr(stockKey);
+        // Publish order creation task to queue
+        await publishToQueue('order_queue', {
+            order_id: orderId,
+            product_id: productId,
+            user_id: userId,
+            reserved_token: reserved,
+            timestamp: new Date().toISOString(),
+        });
 
-        // if (reserved < 0) {
-        //     // Restore the token if we went below 0
-        //     await redisClient.incr(stockKey);
-        //     return res.status(400).json({ error: 'Product sold out' });
-        // }
-
-        // // Generate order ID and token
-        // const orderId = uuidv4();
-        // const reservedToken = uuidv4();
-
-        // // Publish order creation task to queue
-        // await publishToQueue('order_queue', {
-        //     orderId,
-        //     productId,
-        //     userId,
-        //     reservedToken,
-        //     timestamp: new Date().toISOString(),
-        // });
-
-        res.json({
+        return res.json({
             oder_id: orderId,
             product_id: productId,
             status,

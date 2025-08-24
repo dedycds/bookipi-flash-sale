@@ -2,9 +2,6 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 
 import { authenticate, create } from '../handlers/user';
-
-const router = Router();
-
 // Validation middleware
 const validateRegistration = [
     body('email').isEmail().normalizeEmail(),
@@ -12,6 +9,11 @@ const validateRegistration = [
 ];
 
 const validateLogin = [body('email').isEmail().normalizeEmail(), body('password').notEmpty()];
+
+/**
+ * Router
+ */
+const router = Router();
 
 // Register user
 router.post('', validateRegistration, create);

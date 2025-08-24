@@ -3,12 +3,14 @@ import dotenv from 'dotenv';
 import express from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { processQueuedOrder } from './handlers/order/index';
+import type { Order } from './handlers/order/types';
 import { authMiddleware } from './middleware/auth';
 import { errorHandler } from './middleware/errorHandler';
 import orderRoutes from './routes/order';
 import saleRoutes from './routes/sale';
 import userRoutes from './routes/user';
-import { connectRabbitMQ, disconnectRabbitMQ } from './services/rabbitmq';
+import { connectRabbitMQ, consumeFromQueue, disconnectRabbitMQ } from './services/rabbitmq';
 import { connectRedis, disconnectRedis } from './services/redis';
 
 dotenv.config();
@@ -81,6 +83,9 @@ const startServices = async () => {
     try {
         await connectRedis();
         await connectRabbitMQ();
+        consumeFromQueue<Order>('order_queue', async message => {
+            await processQueuedOrder(message);
+        });
     } catch (error) {
         console.error('Failed to start services:', error);
         process.exit(1);

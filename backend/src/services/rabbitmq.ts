@@ -45,9 +45,9 @@ export const disconnectRabbitMQ = async () => {
     if (connection) await connection.close();
 };
 
-export const consumeFromQueue = async (
+export const consumeFromQueue = async <E>(
     queue: string,
-    callback: (message: any) => Promise<void>
+    callback: (message: E) => Promise<void>
 ) => {
     try {
         if (!channel) {

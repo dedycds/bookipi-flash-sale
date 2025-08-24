@@ -1,6 +1,9 @@
 import type { NextFunction, Request, Response } from 'express';
 import pool from '../../db/connection';
+import { FLASH_SALE_REDIS_KEY } from '../../globals';
 import { createError } from '../../middleware/errorHandler';
+import redisClient from '../../services/redis';
+import { getStockKey } from '../../utils';
 
 interface SaleProduct {
     flash_sale_id: string;
@@ -16,19 +19,26 @@ export async function get(
     next: NextFunction
 ): Promise<Response | void> {
     try {
-        // Get current flash sale
-        const saleResult = await pool.query<SaleProduct>(`
-            SELECT fs.flash_sale_id, fs.start_date, fs.end_date, p.product_id, p.quantity
-            FROM flash_sales fs
-            INNER JOIN products p ON fs.product_id = p.product_id
-            LIMIT 1
-        `);
+        let sale: SaleProduct;
 
-        if (saleResult.rows.length === 0) {
-            return next(createError('Flash sale not found', 500));
+        const cachedFlashSale = await redisClient.get(FLASH_SALE_REDIS_KEY);
+        if (cachedFlashSale) {
+            sale = JSON.parse(cachedFlashSale) as SaleProduct;
+        } else {
+            // Get current flash sale
+            const saleResult = await pool.query<SaleProduct>(`
+                SELECT fs.flash_sale_id, fs.start_date, fs.end_date, p.product_id, p.quantity
+                FROM flash_sales fs
+                INNER JOIN products p ON fs.product_id = p.product_id
+                LIMIT 1
+            `);
+            if (saleResult.rows.length === 0) {
+                return next(createError('Flash sale not found', 500));
+            }
+            sale = saleResult.rows[0];
+            await redisClient.set(FLASH_SALE_REDIS_KEY, JSON.stringify(sale));
         }
 
-        const sale = saleResult.rows[0];
         const now = new Date();
         const startDate = new Date(sale.start_date);
         const endDate = new Date(sale.end_date);
@@ -43,17 +53,18 @@ export async function get(
         }
 
         // // Get remaining stock from Redis
-        // const remainingStock = await redisClient.get(`stock:${sale.product_id}`);
-        // const stockCount = remainingStock ? parseInt(remainingStock) : sale.quantity;
+        const remainingStock = await redisClient.LLEN(getStockKey(sale.product_id));
+        const stockCount = remainingStock;
 
         return res.json({
             productId: sale.product_id,
             status,
-            remainingStock: sale.quantity,
+            remainingStock: stockCount,
             startDate: sale.start_date,
             endDate: sale.end_date,
         });
     } catch (error) {
+        console.error(error);
         return next(createError('Failed to fetch sale status', 500));
     }
 }
