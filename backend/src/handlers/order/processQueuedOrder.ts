@@ -8,11 +8,13 @@ export async function processQueuedOrder(order: Order) {
     try {
         // Create order in database
         await pool.query(
-            'INSERT INTO orders (order_id, product_id, user_id, reserved_token, status) VALUES ($1, $2, $3, $4, $5)',
+            `INSERT INTO orders
+            (order_id, product_id, user_id, reserved_token, status)
+            VALUES ($1, $2, $3, $4, $5)`,
             [order_id, product_id, user_id, reserved_token, 'completed']
         );
     } catch (error) {
-        console.info('Fail to create order - clean up the redis');
+        console.error('Fail to create order - clean up the redis', error);
         // release the token
         await redisClient.lPush(getStockKey(product_id), reserved_token);
         // remove the order token check

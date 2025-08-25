@@ -15,9 +15,7 @@ export async function update(
         const { start_date, end_date } = req.body;
 
         const result = await pool.query<{ product_id: string; quantity: number }>(
-            `
-            SELECT product_id, quantity FROM products WHERE product_id = $1
-            `,
+            `SELECT product_id, quantity FROM products WHERE product_id = $1`,
             [PRODUCT_ID]
         );
 

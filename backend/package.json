@@ -9,7 +9,8 @@
         "start": "node dist/index.js",
         "test": "jest",
         "lint": "eslint src/**/*.ts",
-        "lint:fix": "eslint src/**/*.ts --fix"
+        "lint:fix": "eslint src/**/*.ts --fix",
+        "test:unit": "npx jest --testMatch '**/src/**/*.test.ts' --runInBand"
     },
     "dependencies": {
         "amqplib": "^0.10.3",
