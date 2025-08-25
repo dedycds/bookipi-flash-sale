@@ -37,6 +37,8 @@ The code implemented in this repo currently consists of frontend and backend arc
     Running this script will automatically populate the flash sale and product data.
     You would need to use the `POST /sales/update` endpoint to adjust `start_date`, `end_date` and `quantity`
 
+    **Important: You would need to hit this endpoint to se quantity**
+
 3. Access:
     - Frontend: [http://localhost:3000](http://localhost:3000/)
     - Backend: [http://localhost:8000](http://localhost:8000/)
@@ -52,49 +54,7 @@ The code implemented in this repo currently consists of frontend and backend arc
     cd backend && npm install
     ```
 
-## **📋 API Endpoints**
-
-### **Auth & Users**
-
-- `POST /users` — Register user, returns JWT
-    - Body
-
-    ```jsx
-    {
-        "email": "test2@mailinator.com",
-        "password": "12345678"
-    }
-    ```
-
-    - Response
-
-    ```jsx
-    {
-        "user_id": "1fb06744-a5e4-43cf-88b2-e0971e9b6f9c",
-        "email": "test2@mailinator.com",
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjFmYjA2NzQ0LWE1ZTQtNDNjZi04OGIyLWUwOTcxZTliNmY5YyIsImVtYWlsIjoidGVzdDJAbWFpbGluYXRvci5jb20iLCJpYXQiOjE3NTYwMjEzMzQsImV4cCI6MTc1NjEwNzczNH0.DKfsUDuoUHnCTXf1LZfDk67909Gg4WjgSQnaZbzM13w"
-    }
-    ```
-
-- `POST /users/authenticate` — Login, returns JWT
-    - Body
-
-    ```jsx
-    {
-        "email": "test2@mailinator.com",
-        "password": "12345678"
-
-    ```
-
-    - Response
-
-    ```jsx
-    {
-        "user_id": "1fb06744-a5e4-43cf-88b2-e0971e9b6f9c",
-        "email": "test2@mailinator.com",
-        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjFmYjA2NzQ0LWE1ZTQtNDNjZi04OGIyLWUwOTcxZTliNmY5YyIsImVtYWlsIjoidGVzdDJAbWFpbGluYXRvci5jb20iLCJpYXQiOjE3NTYwMjEzMzQsImV4cCI6MTc1NjEwNzczNH0.DKfsUDuoUHnCTXf1LZfDk67909Gg4WjgSQnaZbzM13w"
-    }
-    ```
+## **📋 Useful API Endpoints**
 
 ### **Flash Sale**
 
@@ -137,33 +97,6 @@ The code implemented in this repo currently consists of frontend and backend arc
         "quantity": 100
     }
     ```
-
-### Order
-
-- `POST /orders` — Attempt purchase (requires JWT)
-    - Body
-
-    ```jsx
-    {
-      "productId": "550e8400-e29b-41d4-a716-446655440000"
-    }
-    ```
-
-- `GET /orders` — See order created by the user (requires JWT)
-    - Response
-
-    ```jsx
-    {
-        "order_id": "adb269a9-720e-4ff7-9df6-f2782410466c",
-        "product_id": "550e8400-e29b-41d4-a716-446655440000",
-        "status": "completed",
-        "created_at": "2025-08-25T03:46:18.515Z"
-    }
-    ```
-
-### **Health**
-
-- `GET /health` — Service health check
 
 ## **🧪 Load Testing with Artillery**
 
