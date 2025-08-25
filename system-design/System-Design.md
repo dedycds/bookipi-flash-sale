@@ -8,9 +8,9 @@
 - **Single product, limited stock** — fixed quantity available.
 - **One item per user** — enforce unique purchase constraint.
 - **API server endpoints** (minimum):
-    - `GET /sale/status` — returns sale state (`upcoming | active | ended`) and remaining stock.
-    - `POST /sale/purchase` — attempt to purchase (requires user identifier).
-    - `GET /sale/result` — check if a user successfully purchased.
+    - `GET /sales` — returns sale state (`upcoming | active | ended`) and remaining stock.
+    - `POST /orders` — attempt to purchase (requires user identifier).
+    - `GET /orders` — check if a user successfully purchased.
 - **Frontend requirements**:
     - Show current sale status.
     - User authentication (login/signup).
@@ -48,6 +48,7 @@
 
 ### API Gateway
 
+- Cloud service: Managed Google API Gateway / Managed Google Cloud Run
 - REST-based gateway.
 - Responsibilities:
     - Authentication & authorization.
@@ -57,30 +58,33 @@
 
 **Endpoints:**
 
-- `POST /users/signup` — register new user.
+- `POST /users` — register new user.
 - `POST /users/authenticate` — authenticate user.
 - `GET /sales` — fetch flash sale item details.
-- `POST /sale/attempt` — attempt purchase.
+- `POST /sales/update` — update sales .
+- `POST /orders` — attempt purchase.
     - Request: `{ product_id: string }`
     - Responses:
         - `200 OK`: `{ order_id, user_id, product_id }`
         - `400 Bad Request`: `{ error: "Product sold out" }`
         - `400 Bad Request`: `{ error: "Already purchased" }`
-- `POST /sale/check` — check purchase result.
+- `GET /orders` — check purchase result.
     - Responses:
-        - `200 OK`: `{ message: "Product purchased" }`
+        - `200 OK`: `{ order_id, user_id, product_id, status}`
         - `200 OK`: `{ message: "Failed to purchase" }`
 
 ---
 
 ### User Service
 
+- Cloud Service: Cloud Run
 - Containerized microservice handling user authentication and session management.
 
 ---
 
 ### Sale Service
 
+- Cloud Service: Cloud Run
 - Responsible for sale lifecycle management and real-time availability display.
 - Uses **Redis** to store “stock tokens” representing available inventory.
 - Ensures accurate, up-to-date stock counts under heavy read traffic.
@@ -89,6 +93,7 @@
 
 ### Order Service
 
+- Cloud Service: Cloud Run
 - Handles order creation and enforces **one order per user per product**.
 - On successful purchase: consumes one token from Redis (decrement stock).
 - On failed order creation: releases token back to Redis.
@@ -145,13 +150,6 @@ This design allows **instant feedback to users** (“purchase submitted”) whil
 - **Direct Writes**: Low latency, but under bursty traffic the database can be overloaded, causing timeouts or lock contention.
 - **Task Queue**: Buffers requests, ensuring database writes are processed at a controlled rate. Provides elasticity under sudden traffic spikes.
 - **Trade-off**: Adds eventual consistency — user may see a short delay before final confirmation. But in flash sales, **fairness and stability** matter more than sub-millisecond latency.
-
----
-
-### Why not Kafka for Orders?
-
-- **Kafka**: Great for event streaming, but overkill for this case. It introduces complexity and is not required since we only need ordered, reliable task execution.
-- **Task Queue (SQS, Cloud Tasks, RabbitMQ)**: Purpose-built for request buffering and background processing, simpler to manage.
 
 ---
 

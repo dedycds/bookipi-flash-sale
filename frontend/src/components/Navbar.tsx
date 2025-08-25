@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 
 const Navbar = () => {
-    const { isAuthenticated, user, logout } = useAuthStore();
+    const { isAuthenticated, logout } = useAuthStore();
     const navigate = useNavigate();
 
     const handleLogout = () => {
@@ -25,7 +25,7 @@ const Navbar = () => {
                                 </Link>
                             </li>
                             <li>
-                                <span className="nav-link">Welcome, {user?.email}</span>
+                                <span className="nav-link">Welcome</span>
                             </li>
                             <li>
                                 <button onClick={handleLogout} className="nav-button">

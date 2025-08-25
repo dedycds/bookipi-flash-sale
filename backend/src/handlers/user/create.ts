@@ -49,6 +49,7 @@ export async function create(
 
         return res.status(201).json({ user_id: userId, email: email, token: token });
     } catch (error) {
+        console.error(error);
         next(createError('Failed to create user', 500));
     }
 }
