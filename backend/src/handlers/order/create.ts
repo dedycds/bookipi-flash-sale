@@ -21,6 +21,21 @@ export async function create(
         const { id: userId } = req.user || {};
         const { productId } = req.body;
 
+        // Check if stock exists
+        const stockCount = await redisClient.lLen(getStockKey(productId));
+
+        if (!stockCount) {
+            return res.status(400).json({ error: 'Product sold out' });
+        }
+
+        const existingOrder = await redisClient.get(
+            getUniqueOrderKey({ product_id: productId, user_id: userId || '' })
+        );
+
+        if (existingOrder) {
+            return res.status(400).json({ error: 'Already purchased' });
+        }
+
         // Check if sale is active
         const saleResult = await pool.query(
             `
@@ -36,14 +51,6 @@ export async function create(
 
         if (saleResult.rows.length === 0) {
             return res.status(400).json({ error: 'Sale is not active' });
-        }
-
-        const existingOrder = await redisClient.get(
-            getUniqueOrderKey({ product_id: productId, user_id: userId || '' })
-        );
-
-        if (existingOrder) {
-            return res.status(400).json({ error: 'Already purchased' });
         }
 
         // Try to reserve stock token from Redis

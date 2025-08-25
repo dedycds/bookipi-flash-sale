@@ -24,7 +24,7 @@
         "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css,scss,html,yml,yaml}\"",
         "docker:dev": "docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build",
         "stress:sales": "npx artillery run ./artillery/sales-status.yml",
-        "stress:attempt": "npx artillery run ./artillery/attempt-purchase.yml --debug"
+        "stress:attempt": "npx artillery run ./artillery/attempt-purchase.yml"
     },
     "devDependencies": {
         "@types/node": "^24.3.0",

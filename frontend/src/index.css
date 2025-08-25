@@ -97,6 +97,7 @@ button:focus-visible {
 }
 
 .product-card {
+    text-align: center;
     background: white;
     border-radius: 12px;
     padding: 2rem;

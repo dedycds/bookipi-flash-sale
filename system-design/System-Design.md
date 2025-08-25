@@ -71,7 +71,6 @@
 - `GET /orders` — check purchase result.
     - Responses:
         - `200 OK`: `{ order_id, user_id, product_id, status}`
-        - `200 OK`: `{ message: "Failed to purchase" }`
 
 ---
 
