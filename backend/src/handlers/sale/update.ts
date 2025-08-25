@@ -12,8 +12,9 @@ export async function update(
     next: NextFunction
 ): Promise<Response | void> {
     try {
-        const { start_date, end_date } = req.body;
+        const { start_date, end_date, quantity: input_quantity } = req.body;
 
+        /** 1. Update the Flash Sale data */
         const result = await pool.query<{ product_id: string; quantity: number }>(
             `SELECT product_id, quantity FROM products WHERE product_id = $1`,
             [PRODUCT_ID]
@@ -24,8 +25,7 @@ export async function update(
         }
 
         const { quantity } = result.rows[0];
-
-        await pool.query(
+        const updateFlashSale = pool.query(
             `
             UPDATE
                 flash_sales
@@ -38,9 +38,12 @@ export async function update(
             [start_date, end_date, FLASH_SALE_ID]
         );
 
-        await redisClient.del(FLASH_SALE_REDIS_KEY);
-        await redisClient.del(getStockKey(PRODUCT_ID));
-        await redisClient.rPush(getStockKey(PRODUCT_ID), generateTokens(quantity));
+        await Promise.all([
+            updateFlashSale,
+            redisClient.del(FLASH_SALE_REDIS_KEY),
+            redisClient.del(getStockKey(PRODUCT_ID)),
+            redisClient.rPush(getStockKey(PRODUCT_ID), generateTokens(input_quantity || quantity)),
+        ]);
 
         return res.json({
             product_id: PRODUCT_ID,

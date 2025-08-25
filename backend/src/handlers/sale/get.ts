@@ -11,6 +11,8 @@ interface SaleProduct {
     end_date: Date;
     product_id: string;
     quantity: number;
+    price_in_cent: number;
+    name: string;
 }
 
 export async function get(
@@ -27,14 +29,23 @@ export async function get(
         } else {
             // Get current flash sale
             const saleResult = await pool.query<SaleProduct>(`
-                SELECT fs.flash_sale_id, fs.start_date, fs.end_date, p.product_id, p.quantity
+                SELECT
+                    fs.flash_sale_id,
+                    fs.start_date,
+                    fs.end_date,
+                    p.product_id,
+                    p.quantity,
+                    p.name,
+                    p.price_in_cent
                 FROM flash_sales fs
                 INNER JOIN products p ON fs.product_id = p.product_id
                 LIMIT 1
             `);
+
             if (saleResult.rows.length === 0) {
                 return next(createError('Flash sale not found', 500));
             }
+
             sale = saleResult.rows[0];
             await redisClient.set(FLASH_SALE_REDIS_KEY, JSON.stringify(sale));
         }
@@ -54,14 +65,11 @@ export async function get(
 
         // // Get remaining stock from Redis
         const remainingStock = await redisClient.LLEN(getStockKey(sale.product_id));
-        const stockCount = remainingStock;
 
         return res.json({
-            productId: sale.product_id,
+            ...sale,
             status,
-            remainingStock: stockCount,
-            startDate: sale.start_date,
-            endDate: sale.end_date,
+            remaining_stock: remainingStock,
         });
     } catch (error) {
         console.error(error);

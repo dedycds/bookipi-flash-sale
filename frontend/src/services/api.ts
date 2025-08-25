@@ -53,45 +53,38 @@ export interface LoginResponse {
     token: string;
 }
 
-export interface SaleStatus {
-    status: 'upcoming' | 'active' | 'ended';
-    remainingStock: number;
-    startDate: string;
-    endDate: string;
-}
-
-export interface Product {
+export interface FlashSale {
     product_id: string;
-    name: string;
+    status: 'upcoming' | 'active' | 'ended';
+    remaining_stock: number;
+    start_date: string;
+    end_date: string;
     price_in_cent: number;
-    quantity: number;
+    name: string;
 }
 
-export interface PurchaseRequest {
+export interface OrderRequest {
     productId: string;
 }
 
-export interface PurchaseResponse {
-    orderId: string;
-    userId: string;
-    productId: string;
-}
-
-export interface PurchaseResult {
-    message: string;
-    orderId?: string;
+export interface OrderResponse {
+    status: 'completed' | 'pending';
+    order_id: string;
+    product_id: string;
 }
 
 export const authAPI = {
     login: (data: LoginRequest) => api.post<LoginResponse>('/users/authenticate', data),
-    register: (data: RegisterRequest) => api.post<LoginResponse>('/users/signup', data),
+    register: (data: RegisterRequest) => api.post<LoginResponse>('/users', data),
 };
 
-export const saleAPI = {
-    getStatus: () => api.get<SaleStatus>('/sale/status'),
-    getProduct: () => api.get<Product>('/sale/product'),
-    attemptPurchase: (data: PurchaseRequest) => api.post<PurchaseResponse>('/sale/attempt', data),
-    checkPurchase: (orderId: string) => api.post<PurchaseResult>('/sale/check', { orderId }),
+export const flashSaleAPI = {
+    get: () => api.get<FlashSale>('/sales'),
+};
+
+export const orderAPI = {
+    create: (data: OrderRequest) => api.post<OrderResponse>('/orders', data),
+    get: () => api.get<OrderResponse>('/orders'),
 };
 
 export default api;

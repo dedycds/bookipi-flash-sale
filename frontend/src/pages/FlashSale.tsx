@@ -1,79 +1,51 @@
-import { useState } from 'react';
-import { useQuery, useMutation } from 'react-query';
-import { toast } from 'react-hot-toast';
 import { formatDistanceToNow } from 'date-fns';
-import { saleAPI } from '../services/api';
-import type { PurchaseResponse, PurchaseResult } from '../services/api';
+import { useState } from 'react';
+import { toast } from 'react-hot-toast';
+import { useMutation, useQuery } from 'react-query';
+import { flashSaleAPI, orderAPI } from '../services/api';
 
 const FlashSale = () => {
     const [purchaseStatus, setPurchaseStatus] = useState<string>('');
-    const [orderId, setOrderId] = useState<string>('');
 
     // Fetch sale status
-    const { data: saleStatus, refetch: refetchStatus } = useQuery('saleStatus', saleAPI.getStatus, {
+    const { data: flashSale, refetch: refetchSale } = useQuery('flashSale', flashSaleAPI.get, {
         refetchInterval: 5000, // Refetch every 5 seconds
     });
 
-    // Fetch product details
-    const { data: product } = useQuery('product', saleAPI.getProduct);
+    // Check if any other has been created
+    const { data: order, refetch: refetchOrder } = useQuery('order', orderAPI.get);
 
     // Purchase mutation
-    const purchaseMutation = useMutation(
-        (productId: string) => saleAPI.attemptPurchase({ productId }),
-        {
-            onSuccess: (response: { data: PurchaseResponse }) => {
-                const { orderId } = response.data;
-                setOrderId(orderId);
-                setPurchaseStatus('in_progress');
-                toast.success('Purchase submitted! Checking status...');
-                // Start checking purchase result
-                checkPurchaseResult(orderId);
-            },
-            onError: (error: unknown) => {
-                type AxiosErrorLike = { response?: { data?: { error?: string } } };
-                const err = error as AxiosErrorLike;
-                const errorMessage = err.response?.data?.error || 'Purchase failed';
-                setPurchaseStatus('failed');
-                toast.error(errorMessage);
-            },
-        }
-    );
+    const purchaseMutation = useMutation((productId: string) => orderAPI.create({ productId }), {
+        onSuccess: () => {
+            setPurchaseStatus('in_progress');
+            toast.success('Purchase submitted! Checking status...');
 
-    // Check purchase result
-    const checkPurchaseMutation = useMutation((orderId: string) => saleAPI.checkPurchase(orderId), {
-        onSuccess: (response: { data: PurchaseResult }) => {
-            const { message } = response.data;
-            if (message.includes('purchased')) {
-                setPurchaseStatus('success');
-                toast.success('Purchase successful!');
-            } else {
-                setPurchaseStatus('failed');
-                toast.error('Purchase failed');
-            }
-            refetchStatus();
+            // wait for 1 second to refresh if we have order or not
+            setTimeout(() => {
+                refetchSale();
+                refetchOrder();
+            }, 1000);
         },
-        onError: () => {
+        onError: (error: unknown) => {
+            type AxiosErrorLike = { response?: { data?: { error?: string } } };
+            const err = error as AxiosErrorLike;
+            const errorMessage = err.response?.data?.error || 'Purchase failed';
             setPurchaseStatus('failed');
-            toast.error('Failed to check purchase status');
+            toast.error(errorMessage);
         },
     });
 
-    const checkPurchaseResult = (orderId: string) => {
-        setTimeout(() => {
-            checkPurchaseMutation.mutate(orderId);
-        }, 2000); // Check after 2 seconds
-    };
-
     const handlePurchase = () => {
-        if (product?.data) {
-            purchaseMutation.mutate(product.data.product_id);
+        if (flashSale?.data) {
+            purchaseMutation.mutate(flashSale.data.product_id);
         }
     };
 
     const getStatusDisplay = () => {
-        if (!saleStatus?.data) return 'Loading...';
+        if (!flashSale?.data) return 'Loading...';
 
-        switch (saleStatus.data.status) {
+        switch (flashSale.data.status) {
             case 'upcoming':
                 return 'Upcoming';
             case 'active':
@@ -87,9 +59,11 @@ const FlashSale = () => {
 
     const getPurchaseButtonText = () => {
         if (purchaseMutation.isLoading) return 'Processing...';
-        if (purchaseStatus === 'in_progress') return 'Checking...';
-        if (purchaseStatus === 'success') return 'Purchased!';
-        if (purchaseStatus === 'failed') return 'Try Again';
+        if ((!order?.data && purchaseStatus === 'in_progress') || order?.data?.status === 'pending')
+            return 'Checking...';
+
+        if (order?.data?.status === 'completed') return 'Purchased!';
+
         return 'Buy Now';
     };
 
@@ -98,8 +72,9 @@ const FlashSale = () => {
             purchaseMutation.isLoading ||
             purchaseStatus === 'in_progress' ||
             purchaseStatus === 'success' ||
-            saleStatus?.data?.status !== 'active' ||
-            saleStatus?.data?.remainingStock === 0
+            flashSale?.data?.status !== 'active' ||
+            flashSale?.data?.remaining_stock === 0 ||
+            !!order?.data
         );
     };
 
@@ -107,7 +82,7 @@ const FlashSale = () => {
         return `$${(priceInCent / 100).toFixed(2)}`;
     };
 
-    if (!saleStatus?.data || !product?.data) {
+    if (!flashSale?.data) {
         return (
             <div className="flash-sale-container">
                 <div className="product-card">
@@ -119,33 +94,33 @@ const FlashSale = () => {
 
     return (
         <div className="flash-sale-container">
-            <div className={`sale-status ${saleStatus.data.status}`}>
+            <div className={`sale-status ${flashSale.data.status}`}>
                 Sale Status: {getStatusDisplay()}
             </div>
 
             <div className="product-card">
-                <h2>{product.data.name}</h2>
+                <h2 className="product-name">{flashSale.data.name}</h2>
                 <div className="stock-info">
-                    <p>Price: {formatPrice(product.data.price_in_cent)}</p>
-                    <p>Remaining Stock: {saleStatus.data.remainingStock}</p>
+                    <p>Price: {formatPrice(flashSale.data.price_in_cent)}</p>
+                    <p>Remaining Stock: {flashSale.data.remaining_stock}</p>
                 </div>
 
-                {saleStatus.data.status === 'upcoming' && (
+                {flashSale.data.status === 'upcoming' && (
                     <div className="countdown">
                         <p>Sale starts in:</p>
                         <p>
-                            {formatDistanceToNow(new Date(saleStatus.data.startDate), {
+                            {formatDistanceToNow(new Date(flashSale.data.start_date), {
                                 addSuffix: true,
                             })}
                         </p>
                     </div>
                 )}
 
-                {saleStatus.data.status === 'active' && (
+                {flashSale.data.status === 'active' && (
                     <div className="countdown">
                         <p>Sale ends in:</p>
                         <p>
-                            {formatDistanceToNow(new Date(saleStatus.data.endDate), {
+                            {formatDistanceToNow(new Date(flashSale.data.end_date), {
                                 addSuffix: true,
                             })}
                         </p>
@@ -162,16 +137,10 @@ const FlashSale = () => {
                     </button>
                 </div>
 
-                {purchaseStatus === 'success' && (
+                {order?.data?.status === 'completed' && (
                     <div style={{ textAlign: 'center', marginTop: '1rem', color: '#10b981' }}>
                         <p>🎉 Congratulations! Your purchase was successful!</p>
-                        <p>Order ID: {orderId}</p>
-                    </div>
-                )}
-
-                {purchaseStatus === 'failed' && (
-                    <div style={{ textAlign: 'center', marginTop: '1rem', color: '#ef4444' }}>
-                        <p>❌ Purchase failed. Please try again.</p>
+                        <p>Order ID: {order?.data.order_id}</p>
                     </div>
                 )}
             </div>

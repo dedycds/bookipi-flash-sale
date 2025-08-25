@@ -3,7 +3,11 @@ import { body } from 'express-validator';
 import { get, update } from '../handlers/sale';
 
 // Validation middleware
-const validateUpdate = [body('start_date').isDate(), body('end_date').isDate()];
+const validateUpdate = [
+    body('start_date').isDate(),
+    body('end_date').isDate(),
+    body('quantity').isInt(),
+];
 
 /** Router */
 const router = Router();
