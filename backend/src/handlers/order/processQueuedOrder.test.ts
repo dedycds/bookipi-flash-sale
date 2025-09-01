@@ -4,16 +4,18 @@ import { getStockKey, getUniqueOrderKey } from '../../utils';
 import { processQueuedOrder } from './processQueuedOrder';
 import { Order } from './types';
 
-jest.mock('../../../src/db/connection');
-jest.mock('../../../src/services/redis');
+jest.mock('../../db/connection');
+jest.mock('../../services/redis');
 jest.mock('../../utils');
 
-const MOCK_ORDER = {
+const MOCK_ORDER: Order = {
     order_id: 'order123',
     product_id: 'prod456',
     user_id: 'user789',
     reserved_token: 'tokenABC',
-} as Order;
+    status: 'pending',
+    created_at: new Date(),
+};
 
 const MOCK_STOCK_KEY = 'stock:prod456';
 const MOCK_ORDER_KEY = 'order:prod456:user789';
@@ -26,7 +28,7 @@ describe('processQueuedOrder', () => {
         jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
-    it('should insert order and not call redis cleanup on success', async () => {
+    it('should insert order successfully and skip redis cleanup', async () => {
         (pool.query as jest.Mock).mockResolvedValueOnce({});
         (redisClient.lPush as jest.Mock).mockResolvedValueOnce(undefined);
         (redisClient.del as jest.Mock).mockResolvedValueOnce(undefined);
@@ -44,7 +46,7 @@ describe('processQueuedOrder', () => {
         expect(redisClient.del).not.toHaveBeenCalled();
     });
 
-    it('should call redis cleanup methods on DB error', async () => {
+    it('should clean up redis if DB insert fails', async () => {
         (pool.query as jest.Mock).mockRejectedValueOnce(new Error('DB error'));
         (redisClient.lPush as jest.Mock).mockResolvedValueOnce(undefined);
         (redisClient.del as jest.Mock).mockResolvedValueOnce(undefined);

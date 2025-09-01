@@ -6,7 +6,7 @@ import { createError } from '../../middleware/errorHandler';
 import { publishToQueue } from '../../services/rabbitmq';
 import redisClient from '../../services/redis';
 import { getStockKey, getUniqueOrderKey } from '../../utils';
-import { create } from './create';
+import { create, ERROR_MESSAGES } from './create';
 
 jest.mock('express-validator', () => ({
     validationResult: jest.fn(),
@@ -31,114 +31,117 @@ const mockRes = () => {
 };
 
 const mockNext = jest.fn();
+// Common mock variables to avoid magic strings
+const USER_ID = 'user-1';
+const PRODUCT_ID = 'prod-1';
+const ORDER_ID = 'order-uuid';
+const RESERVED_TOKEN = 'token-1';
+const UNIQUE_ORDER_KEY = 'unique-order-key';
+const STOCK_KEY = 'stock-key';
+const QUEUE_NAME = 'order_queue';
+const DB_ERROR_MESSAGE = 'DB error';
 
 describe('create order handler', () => {
-    const userId = 'user-1';
-    const productId = 'prod-1';
-    const orderId = 'order-uuid';
-    const reservedToken = 'token-1';
-
     beforeEach(() => {
         jest.clearAllMocks();
-        (getStockKey as jest.Mock).mockReturnValue('stock-key');
-        (getUniqueOrderKey as jest.Mock).mockReturnValue('unique-order-key');
+        (getStockKey as jest.Mock).mockReturnValue(STOCK_KEY);
+        (getUniqueOrderKey as jest.Mock).mockReturnValue(UNIQUE_ORDER_KEY);
         (validationResult as unknown as jest.Mock).mockReturnValue({
             isEmpty: () => true,
             array: () => [],
         });
         (pool.query as jest.Mock).mockResolvedValue({ rows: [{}] });
-        (uuidv4 as jest.Mock).mockImplementation(() => orderId);
+        (uuidv4 as jest.Mock).mockImplementation(() => ORDER_ID);
+        (redisClient.lLen as jest.Mock).mockResolvedValue(1);
         jest.spyOn(console, 'error').mockImplementation(() => {});
     });
 
-    it('should return 400 if validation errors exist', async () => {
-        (validationResult as unknown as jest.Mock).mockReturnValue({
-            isEmpty: () => false,
-            array: () => [{ msg: 'Invalid' }],
-        });
+    it('should return 400 if stock does not exist', async () => {
+        (redisClient.lLen as jest.Mock).mockResolvedValue(0);
 
-        const req: any = { user: { id: userId }, body: { productId } };
+        const req: any = { user: { id: USER_ID }, body: { productId: PRODUCT_ID } };
         const res = mockRes();
 
         await create(req, res, mockNext);
 
         expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.json).toHaveBeenCalledWith({ errors: [{ msg: 'Invalid' }] });
-    });
-
-    it('should return 400 if sale is not active', async () => {
-        (pool.query as jest.Mock).mockResolvedValue({ rows: [] });
-
-        const req: any = { user: { id: userId }, body: { productId } };
-        const res = mockRes();
-
-        await create(req, res, mockNext);
-
-        expect(pool.query).toHaveBeenCalled();
-        expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.json).toHaveBeenCalledWith({ error: 'Sale is not active' });
+        expect(res.json).toHaveBeenCalledWith({ error: ERROR_MESSAGES.PRODUCT_SOLD_OUT });
     });
 
     it('should return 400 if already purchased', async () => {
-        (redisClient.get as jest.Mock).mockResolvedValue(orderId);
+        (redisClient.get as jest.Mock).mockResolvedValue(ORDER_ID);
 
-        const req: any = { user: { id: userId }, body: { productId } };
+        const req: any = { user: { id: USER_ID }, body: { productId: PRODUCT_ID } };
         const res = mockRes();
 
         await create(req, res, mockNext);
 
         expect(redisClient.get).toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.json).toHaveBeenCalledWith({ error: 'Already purchased' });
+        expect(res.json).toHaveBeenCalledWith({ error: ERROR_MESSAGES.ALREADY_PURCHASED });
     });
 
-    it('should return 400 if product sold out', async () => {
+    it('should return 400 if sale is not active', async () => {
+        (redisClient.get as jest.Mock).mockResolvedValue(null);
+        (pool.query as jest.Mock).mockResolvedValue({ rows: [] });
+
+        const req: any = { user: { id: USER_ID }, body: { productId: PRODUCT_ID } };
+        const res = mockRes();
+
+        await create(req, res, mockNext);
+
+        expect(pool.query).toHaveBeenCalled();
+        expect(res.status).toHaveBeenCalledWith(400);
+        expect(res.json).toHaveBeenCalledWith({ error: ERROR_MESSAGES.SALE_NOT_ACTIVE });
+    });
+
+    it('should return 400 if product sold out when reserving token', async () => {
         (redisClient.get as jest.Mock).mockResolvedValue(null);
         (redisClient.lPop as jest.Mock).mockResolvedValue(null);
 
-        const req = { user: { id: userId }, body: { productId } } as AuthRequest;
+        const req = { user: { id: USER_ID }, body: { productId: PRODUCT_ID } } as AuthRequest;
         const res = mockRes();
 
         await create(req, res, mockNext);
 
         expect(redisClient.lPop).toHaveBeenCalled();
         expect(res.status).toHaveBeenCalledWith(400);
-        expect(res.json).toHaveBeenCalledWith({ error: 'Product sold out' });
+        expect(res.json).toHaveBeenCalledWith({ error: ERROR_MESSAGES.PRODUCT_SOLD_OUT });
     });
 
     it('should create order and return order info', async () => {
         (redisClient.get as jest.Mock).mockResolvedValue(null);
-        (redisClient.lPop as jest.Mock).mockResolvedValue(reservedToken);
+        (redisClient.lPop as jest.Mock).mockResolvedValue(RESERVED_TOKEN);
         (redisClient.set as jest.Mock).mockResolvedValue('OK');
         (publishToQueue as jest.Mock).mockResolvedValue(undefined);
 
-        const req: any = { user: { id: userId }, body: { productId } };
+        const req: any = { user: { id: USER_ID }, body: { productId: PRODUCT_ID } };
         const res = mockRes();
 
         await create(req, res, mockNext);
 
-        expect(redisClient.set).toHaveBeenCalledWith('unique-order-key', orderId);
+        expect(redisClient.set).toHaveBeenCalledWith(UNIQUE_ORDER_KEY, ORDER_ID);
         expect(publishToQueue).toHaveBeenCalledWith(
-            'order_queue',
+            QUEUE_NAME,
             expect.objectContaining({
-                order_id: orderId,
-                product_id: productId,
-                user_id: userId,
-                reserved_token: reservedToken,
+                order_id: ORDER_ID,
+                product_id: PRODUCT_ID,
+                user_id: USER_ID,
+                reserved_token: RESERVED_TOKEN,
             })
         );
         expect(res.json).toHaveBeenCalledWith({
-            oder_id: orderId,
-            product_id: productId,
+            oder_id: ORDER_ID,
+            product_id: PRODUCT_ID,
             status: 'pending',
         });
     });
 
     it('should call next with error on exception', async () => {
-        (pool.query as jest.Mock).mockRejectedValue(new Error('DB error'));
+        (pool.query as jest.Mock).mockRejectedValue(new Error(DB_ERROR_MESSAGE));
         (createError as jest.Mock).mockReturnValue('custom-error');
 
-        const req: any = { user: { id: userId }, body: { productId } };
+        const req: any = { user: { id: USER_ID }, body: { productId: PRODUCT_ID } };
         const res = mockRes();
 
         await create(req, res, mockNext);

@@ -11,28 +11,40 @@ jest.mock('../../services/redis');
 jest.mock('../../utils');
 jest.mock('../../middleware/errorHandler');
 
-const mockSale = {
+// Mock constants (avoid magic strings)
+const MOCK_STOCK_KEY_PROD1 = 'stock:prod1';
+const MOCK_STOCK_KEY_PROD2 = 'stock:prod2';
+const MOCK_STOCK_KEY_PROD3 = 'stock:prod3';
+const MOCK_ERROR = 'error';
+
+const MOCK_SALE = {
     flash_sale_id: 'fs1',
     start_date: new Date(Date.now() + 10000), // upcoming
     end_date: new Date(Date.now() + 20000),
     product_id: 'prod1',
     quantity: 10,
+    price_in_cent: 1000,
+    name: 'Product 1',
 };
 
-const mockActiveSale = {
+const MOCK_ACTIVE_SALE = {
     flash_sale_id: 'fs2',
     start_date: new Date(Date.now() - 10000), // active
     end_date: new Date(Date.now() + 10000),
     product_id: 'prod2',
     quantity: 5,
+    price_in_cent: 2000,
+    name: 'Product 2',
 };
 
-const mockEndedSale = {
+const MOCK_ENDED_SALE = {
     flash_sale_id: 'fs3',
     start_date: new Date(Date.now() - 20000), // ended
     end_date: new Date(Date.now() - 10000),
     product_id: 'prod3',
     quantity: 2,
+    price_in_cent: 3000,
+    name: 'Product 3',
 };
 
 describe('get sale handler', () => {
@@ -50,72 +62,77 @@ describe('get sale handler', () => {
     });
 
     it('should return sale from cache and status upcoming', async () => {
-        (redisClient.get as jest.Mock).mockResolvedValue(JSON.stringify(mockSale));
+        (redisClient.get as jest.Mock).mockResolvedValue(JSON.stringify(MOCK_SALE));
         (redisClient.LLEN as jest.Mock).mockResolvedValue(7);
-        (getStockKey as jest.Mock).mockReturnValue('stock:prod1');
+        (getStockKey as jest.Mock).mockReturnValue(MOCK_STOCK_KEY_PROD1);
 
         await get(req as Request, res as Response, next);
 
         expect(redisClient.get).toHaveBeenCalledWith(FLASH_SALE_REDIS_KEY);
-        expect(res.json).toHaveBeenCalledWith({
-            productId: mockSale.product_id,
-            status: 'upcoming',
-            remainingStock: 7,
-            startDate: mockSale.start_date.toISOString(),
-            endDate: mockSale.end_date.toISOString(),
-        });
+        expect(res.json).toHaveBeenCalledWith(
+            expect.objectContaining({
+                flash_sale_id: MOCK_SALE.flash_sale_id,
+                product_id: MOCK_SALE.product_id,
+                name: MOCK_SALE.name,
+                status: 'upcoming',
+                remaining_stock: 7,
+            })
+        );
     });
 
     it('should return sale from cache and status active', async () => {
-        (redisClient.get as jest.Mock).mockResolvedValue(JSON.stringify(mockActiveSale));
+        (redisClient.get as jest.Mock).mockResolvedValue(JSON.stringify(MOCK_ACTIVE_SALE));
         (redisClient.LLEN as jest.Mock).mockResolvedValue(3);
-        (getStockKey as jest.Mock).mockReturnValue('stock:prod2');
+        (getStockKey as jest.Mock).mockReturnValue(MOCK_STOCK_KEY_PROD2);
 
         await get(req as Request, res as Response, next);
 
         expect(res.json).toHaveBeenCalledWith(
             expect.objectContaining({
-                productId: mockActiveSale.product_id,
+                flash_sale_id: MOCK_ACTIVE_SALE.flash_sale_id,
+                product_id: MOCK_ACTIVE_SALE.product_id,
                 status: 'active',
-                remainingStock: 3,
+                remaining_stock: 3,
             })
         );
     });
 
     it('should return sale from cache and status ended', async () => {
-        (redisClient.get as jest.Mock).mockResolvedValue(JSON.stringify(mockEndedSale));
+        (redisClient.get as jest.Mock).mockResolvedValue(JSON.stringify(MOCK_ENDED_SALE));
         (redisClient.LLEN as jest.Mock).mockResolvedValue(0);
-        (getStockKey as jest.Mock).mockReturnValue('stock:prod3');
+        (getStockKey as jest.Mock).mockReturnValue(MOCK_STOCK_KEY_PROD3);
 
         await get(req as Request, res as Response, next);
 
         expect(res.json).toHaveBeenCalledWith(
             expect.objectContaining({
-                productId: mockEndedSale.product_id,
+                flash_sale_id: MOCK_ENDED_SALE.flash_sale_id,
+                product_id: MOCK_ENDED_SALE.product_id,
                 status: 'ended',
-                remainingStock: 0,
+                remaining_stock: 0,
             })
         );
     });
 
     it('should fetch sale from DB if not cached', async () => {
         (redisClient.get as jest.Mock).mockResolvedValue(null);
-        (pool.query as jest.Mock).mockResolvedValue({ rows: [mockSale] });
+        (pool.query as jest.Mock).mockResolvedValue({ rows: [MOCK_SALE] });
         (redisClient.set as jest.Mock).mockResolvedValue(undefined);
         (redisClient.LLEN as jest.Mock).mockResolvedValue(5);
-        (getStockKey as jest.Mock).mockReturnValue('stock:prod1');
+        (getStockKey as jest.Mock).mockReturnValue(MOCK_STOCK_KEY_PROD1);
 
         await get(req as Request, res as Response, next);
 
         expect(pool.query).toHaveBeenCalled();
         expect(redisClient.set).toHaveBeenCalledWith(
             FLASH_SALE_REDIS_KEY,
-            JSON.stringify(mockSale)
+            JSON.stringify(MOCK_SALE)
         );
         expect(res.json).toHaveBeenCalledWith(
             expect.objectContaining({
-                productId: mockSale.product_id,
-                remainingStock: 5,
+                flash_sale_id: MOCK_SALE.flash_sale_id,
+                product_id: MOCK_SALE.product_id,
+                remaining_stock: 5,
             })
         );
     });
@@ -123,21 +140,21 @@ describe('get sale handler', () => {
     it('should call next with error if no sale found in DB', async () => {
         (redisClient.get as jest.Mock).mockResolvedValue(null);
         (pool.query as jest.Mock).mockResolvedValue({ rows: [] });
-        (createError as jest.Mock).mockReturnValue('error');
+        (createError as jest.Mock).mockReturnValue(MOCK_ERROR);
 
         await get(req as Request, res as Response, next);
 
-        expect(next).toHaveBeenCalledWith('error');
+        expect(next).toHaveBeenCalledWith(MOCK_ERROR);
         expect(res.json).not.toHaveBeenCalled();
     });
 
     it('should call next with error on exception', async () => {
         (redisClient.get as jest.Mock).mockRejectedValue(new Error('Redis error'));
-        (createError as jest.Mock).mockReturnValue('error');
+        (createError as jest.Mock).mockReturnValue(MOCK_ERROR);
 
         await get(req as Request, res as Response, next);
 
-        expect(next).toHaveBeenCalledWith('error');
+        expect(next).toHaveBeenCalledWith(MOCK_ERROR);
         expect(res.json).not.toHaveBeenCalled();
     });
 });
