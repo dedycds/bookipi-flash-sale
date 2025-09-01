@@ -10,7 +10,8 @@
         "test": "jest",
         "lint": "eslint src/**/*.ts",
         "lint:fix": "eslint src/**/*.ts --fix",
-        "test:unit": "npx jest --testMatch '**/src/**/*.test.ts' --runInBand"
+        "test:unit": "npx jest --testMatch '**/src/**/*.test.ts' --runInBand",
+        "test:integration": "npx jest --testMatch '**/tests/integration/**/*.test.ts' --runInBand --detectOpenHandles"
     },
     "dependencies": {
         "amqplib": "^0.10.3",
@@ -33,18 +34,19 @@
         "@types/bcryptjs": "^2.4.6",
         "@types/cors": "^2.8.17",
         "@types/express": "^4.17.21",
-        "@types/jest": "^29.5.8",
+        "@types/jest": "^29.5.14",
         "@types/jsonwebtoken": "^9.0.5",
         "@types/morgan": "^1.9.9",
         "@types/node": "^20.10.0",
         "@types/pg": "^8.10.9",
+        "@types/supertest": "^6.0.3",
         "@types/uuid": "^9.0.7",
         "@typescript-eslint/eslint-plugin": "^6.14.0",
         "@typescript-eslint/parser": "^6.14.0",
         "eslint": "^8.55.0",
         "jest": "^29.7.0",
         "supertest": "^7.1.4",
-        "ts-jest": "^29.1.1",
+        "ts-jest": "^29.4.1",
         "ts-node-dev": "^2.0.0",
         "typescript": "^5.2.2"
     }

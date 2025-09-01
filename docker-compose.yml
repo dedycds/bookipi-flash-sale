@@ -27,10 +27,6 @@ services:
             - POSTGRES_URL=postgresql://postgres:password@postgres:5432/flash_sale
             - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
             - JWT_SECRET=your-super-secret-jwt-key
-            - USER_SERVICE_URL=http://user-service:3001
-            - PRODUCT_SERVICE_URL=http://product-service:3002
-            - SALE_SERVICE_URL=http://sale-service:3003
-            - ORDER_SERVICE_URL=http://order-service:3004
         depends_on:
             - redis
             - postgres

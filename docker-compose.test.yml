@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+    # Backend under test
+    backend:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+        ports:
+            - '8001:8000' # expose on a different host port to avoid conflict with dev
+        environment:
+            - NODE_ENV=test
+            - PORT=8000
+            - REDIS_URL=redis://redis:6379
+            - POSTGRES_URL=postgresql://postgres:password@postgres:5432/flash_sale_test
+            - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+            - JWT_SECRET=test-secret
+        depends_on:
+            - redis
+            - postgres
+            - rabbitmq
+        networks:
+            - flash-sale-test-network
+
+    # Redis
+    redis:
+        image: redis:7-alpine
+        ports:
+            - '6380:6379' # different host port
+        networks:
+            - flash-sale-test-network
+
+    # PostgreSQL (separate DB for testing)
+    postgres:
+        image: postgres:15-alpine
+        ports:
+            - '5433:5432' # different host port
+        environment:
+            - POSTGRES_DB=flash_sale_test
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=password
+        volumes:
+            - postgres_test_data:/var/lib/postgresql/data
+            - ./backend/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+        networks:
+            - flash-sale-test-network
+
+    # RabbitMQ
+    rabbitmq:
+        image: rabbitmq:3-management-alpine
+        ports:
+            - '5673:5672' # different host port
+            - '15673:15672' # management UI on a different port
+        environment:
+            - RABBITMQ_DEFAULT_USER=guest
+            - RABBITMQ_DEFAULT_PASS=guest
+        networks:
+            - flash-sale-test-network
+
+volumes:
+    postgres_test_data:
+
+networks:
+    flash-sale-test-network:
+        driver: bridge

@@ -1,10 +1,3 @@
--- Create database if not exists
-SELECT 'CREATE DATABASE flash_sale'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'flash_sale')\gexec
-
--- Connect to the database
-\c flash_sale;
-
 -- Create users table
 CREATE TABLE IF NOT EXISTS users (
     user_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -53,7 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_flash_sales_dates ON flash_sales(start_date, end_date);
 
 -- Insert sample product
-INSERT INTO products (product_id, name, price_in_cent, quantity) 
+INSERT INTO products (product_id, name, price_in_cent, quantity)
 VALUES (
     '550e8400-e29b-41d4-a716-446655440000',
     'Premium Wireless Headphones',

@@ -88,6 +88,7 @@ describe('update controller', () => {
             start_date: MOCK_START_DATE,
             end_date: MOCK_END_DATE,
             flash_sale_id: FLASH_SALE_ID,
+            quantity: MOCK_INPUT_QUANTITY,
         });
     });
 

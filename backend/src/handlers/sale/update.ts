@@ -70,6 +70,7 @@ export async function update(
             start_date,
             end_date,
             flash_sale_id: FLASH_SALE_ID,
+            quantity: input_quantity,
         });
     } catch (error) {
         // Any DB/Redis error is treated as 500
